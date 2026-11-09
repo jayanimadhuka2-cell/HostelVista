@@ -1,0 +1,170 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>HostelVista | Login</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main class="login-page">
+
+    <!-- LEFT: BRANDING AND HOSTEL IMAGE -->
+    <section class="brand-panel">
+      <div class="brand-content">
+
+        <a href="#" class="brand-logo" aria-label="HostelVista home">
+          <span class="logo-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path class="logo-line"
+                d="M3 21V9L12 3L21 9V21H3Z"/>
+              <path class="logo-line"
+                d="M8 21V13H16V21M8 9H8.01M16 9H16.01"/>
+            </svg>
+          </span>
+          <span class="logo-name">HostelVista</span>
+        </a>
+
+        <p class="tagline">Home away from home.</p>
+
+        <div class="brand-message">
+          <p class="eyebrow">WELCOME TO HOSTELVISTA</p>
+
+          <h1>
+            A Better Place<br>
+            to Call Home.
+          </h1>
+
+          <p class="brand-description">
+            Experience smarter hostel living with a secure,
+            comfortable, and seamless management experience.
+          </p>
+        </div>
+
+        <footer class="brand-footer">
+          <span>COMFORT</span>
+          <span class="footer-dot">•</span>
+          <span>COMMUNITY</span>
+          <span class="footer-dot">•</span>
+          <span>CONVENIENCE</span>
+        </footer>
+
+      </div>
+    </section>
+
+    <!-- RIGHT: LOGIN FORM -->
+    <section class="login-panel">
+      <div class="login-card">
+
+        <p class="small-heading">MEMBER ACCESS</p>
+
+        <h2>Welcome back.</h2>
+
+        <p class="subtitle">
+          Sign in to access your HostelVista account.
+        </p>
+
+        <form id="loginForm">
+
+          <!-- ROLE SELECTOR -->
+          <label class="field-label">Sign in as</label>
+
+          <div class="role-selector">
+            <button
+              type="button"
+              class="role-btn"
+              data-role="admin"
+              aria-pressed="false">
+              Admin
+            </button>
+
+            <button
+              type="button"
+              class="role-btn active"
+              data-role="student"
+              aria-pressed="true">
+              Student
+            </button>
+          </div>
+
+          <!-- EMAIL -->
+          <label class="field-label" for="email">Email address</label>
+
+          <div class="input-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24"
+              aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <path d="M3 7L12 13L21 7"/>
+            </svg>
+
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Enter your email"
+              autocomplete="username"
+              required>
+          </div>
+
+          <!-- PASSWORD -->
+          <div class="password-heading">
+            <label class="field-label" for="password">Password</label>
+          </div>
+
+          <div class="input-wrap password-wrap">
+            <svg class="input-icon" viewBox="0 0 24 24"
+              aria-hidden="true">
+              <rect x="4" y="10" width="16" height="11" rx="2"/>
+              <path d="M8 10V7A4 4 0 0 1 16 7V10"/>
+            </svg>
+
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              required>
+
+            <button
+              type="button"
+              class="password-toggle"
+              aria-label="Show password"
+              aria-pressed="false">
+              Show
+            </button>
+          </div>
+
+          <!-- LOGIN BUTTON -->
+          <button type="submit" class="sign-in-btn">
+            <span>Sign In</span>
+            <span class="button-arrow" aria-hidden="true">→</span>
+          </button>
+
+          <p class="message" role="status" aria-live="polite"></p>
+
+        </form>
+
+        <div class="help-text">
+          <span class="help-line"></span>
+          <p>Secure access for authorised hostel members.</p>
+        </div>
+
+        <p class="copyright">
+          © 2026 HostelVista. All rights reserved.
+        </p>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>

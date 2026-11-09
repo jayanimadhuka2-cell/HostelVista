@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard | Hostel MS</title>
+  <link rel="stylesheet" href="student-dashboard.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>⌂ Hostel MS</h2>
+    <div class="profile">
+      <span>👤</span>
+      <div><b>Student Portal</b><small>Hostel Student</small></div>
+    </div>
+    <nav>
+      <button class="active" onclick="showPage('dashboard')">🏠 Dashboard</button>
+      <button onclick="showPage('allocation')">🛏️ My Allocation</button>
+      <button onclick="showPage('payments')">💳 Payments</button>
+      <button onclick="showPage('complaints')">⚠️ Complaints</button>
+      <button onclick="showPage('attendance')">🕒 In / Out Time</button>
+    </nav>
+    <button class="logout" onclick="logout()">↪ Logout</button>
+  </aside>
+
+  <main class="main">
+    <header class="welcome">
+      <div>
+        <h1 id="greeting">Welcome, Student!</h1>
+        <p>Here's what's happening with your hostel.</p>
+      </div>
+      <span id="today"></span>
+    </header>
+    <section id="content"></section>
+  </main>
+
+  <script src="student-dashboard.js"></script>
+</body>
+</html>

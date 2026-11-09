@@ -1,0 +1,288 @@
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+:root {
+  --bg: #080E17;
+  --navy: #132235;
+  --gold: #E9BD58;
+  --white: #EDF3FB;
+  --muted: #91A2B8;
+  --border: #2A3A4D;
+ 
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+}
+
+button, input { font: inherit; }
+button, a { cursor: pointer; }
+
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.login-page {
+  display: grid;
+  grid-template-columns: 55% 45%;
+  min-height: 100vh;
+}
+
+.brand-panel {
+  display: flex;
+  align-items: center;
+  padding: 55px 8%;
+  background: radial-gradient(circle at 10% 90%, #e9bd5814, transparent 35%), var(--navy);
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(8, 14, 23, 0.88),
+      rgba(19, 34, 53, 0.72)
+    ),
+    url("itum.jpg") center / cover no-repeat;
+
+  color: #EDF3FB;
+}
+
+.brand-content, .login-card {
+  width: 100%;
+  margin: auto;
+}
+
+.brand-content { max-width: 600px; }
+.login-card { max-width: 380px; }
+
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.logo-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: var(--gold);
+  box-shadow: 0 6px 22px #e9bd5826;
+}
+
+.logo-icon svg { width: 29px; height: 29px; fill: none; }
+.logo-line { stroke: var(--bg); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.logo-name, .brand-message h1, .login-card h2 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+}
+
+.logo-name { font-size: clamp(27px, 2.5vw, 34px); }
+.tagline { margin: 12px 0 0 64px; font-size: 13px; }
+
+.brand-message { margin-top: 90px; }
+.eyebrow, .small-heading {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.brand-message h1 {
+  margin: 22px 0 18px;
+  font-size: clamp(36px, 4.2vw, 58px);
+  line-height: 1.2;
+}
+
+.brand-description, .subtitle {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.brand-description { max-width: 370px; }
+
+.brand-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 75px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+}
+
+.footer-dot { color: var(--gold); }
+
+.login-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 35px;
+}
+
+.login-card h2 { margin-top: 17px; font-size: clamp(30px, 3vw, 38px); }
+.subtitle { margin: 10px 0 32px; line-height: 1.7; }
+
+.field-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.role-selector {
+  display: flex;
+  gap: 5px;
+  padding: 4px;
+  margin-bottom: 25px;
+  border-radius: 9px;
+  background: #182638;
+}
+
+.role-btn {
+  flex: 1;
+  min-height: 39px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.role-btn:hover { color: var(--white); }
+.role-btn.active { background: var(--gold); color: var(--bg); }
+
+.input-wrap { position: relative; margin-bottom: 23px; }
+
+.input-wrap input {
+  width: 100%;
+  height: 49px;
+  padding: 0 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0A1420;
+  color: var(--white);
+  font-size: 13px;
+}
+
+.input-wrap input::placeholder { color: #74859B; }
+.input-wrap input:focus { border-color: var(--gold); outline: none; }
+
+.input-icon {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.6;
+  pointer-events: none;
+}
+
+.password-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.text-link, .password-toggle {
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  font-size: 12px;
+}
+
+.password-wrap input { padding-right: 66px; }
+
+.password-toggle {
+  position: absolute;
+  top: 15px;
+  right: 13px;
+  color: var(--muted);
+}
+
+.text-link:hover, .password-toggle:hover { color: var(--gold); }
+
+.sign-in-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--gold);
+  color: var(--bg);
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 5px 18px #e9bd5817;
+  transition: .2s;
+}
+
+.sign-in-btn:hover { transform: translateY(-2px); background: #F2CE78; }
+.sign-in-btn:active { transform: translateY(0); }
+.button-arrow { font-size: 20px; }
+
+.message {
+  min-height: 18px;
+  margin-top: 12px;
+  color: var(--gold);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.help-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.help-line { width: 42px; height: 1px; background: var(--border); }
+.copyright { margin-top: 27px; color: #68798F; font-size: 10px; text-align: center; }
+
+@media (max-width: 850px) {
+  .login-page { grid-template-columns: 1fr; }
+  .brand-panel { min-height: 310px; padding: 35px 7%; }
+  .brand-message { margin-top: 35px; }
+  .brand-message h1 { font-size: clamp(32px, 6vw, 44px); }
+  .brand-footer { margin-top: 30px; }
+  .login-panel { padding: 48px 24px; }
+  .login-card { max-width: 420px; }
+}
+
+@media (max-width: 420px) {
+  .brand-panel { min-height: 280px; padding: 28px 22px; }
+  .logo-name { font-size: 27px; }
+  .logo-icon { width: 44px; height: 44px; }
+  .tagline { margin-left: 0; }
+  .brand-message { margin-top: 30px; }
+  .brand-footer { gap: 7px; font-size: 9px; letter-spacing: .8px; }
+  .login-panel { padding: 40px 22px; }
+}
+
+
+
+
+

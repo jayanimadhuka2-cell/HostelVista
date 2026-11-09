@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | HostelVista</title>
+  <link rel="stylesheet" href="admin-dashboard.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>⌂ Hostel<span>Vista</span></h2>
+
+    <div class="profile">
+      <span>👑</span>
+      <div><b>Admin Portal</b><small>Hostel Administrator</small></div>
+    </div>
+
+    <nav>
+      <button class="active" onclick="showPage('dashboard')">🏠 Dashboard</button>
+      <button onclick="showPage('students')">👥 Students</button>
+      <button onclick="showPage('rooms')">🛏️ Room Management</button>
+      <button onclick="showPage('bookings')">📋 Bookings</button>
+      <button onclick="showPage('payments')">💳 Payments</button>
+      <button onclick="showPage('complaints')">⚠️ Complaints</button>
+      <button onclick="showPage('feedback')">⭐ Feedback</button>
+      <button onclick="showPage('reports')">📊 Reports</button>
+    </nav>
+
+    <button class="logout" onclick="logout()">↪ Logout</button>
+  </aside>
+
+  <main class="main">
+    <header class="welcome">
+      <div>
+        <h1 id="greeting">Welcome, Admin!</h1>
+        <p>Manage your hostel from one place.</p>
+      </div>
+      <span id="today"></span>
+    </header>
+
+    <section id="content"></section>
+  </main>
+
+  <script src="admin-dashboard.js"></script>
+</body>
+</html>
+
