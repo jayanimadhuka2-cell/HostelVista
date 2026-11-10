@@ -79,6 +79,7 @@ payments = db["payments"]
 complaints = db["complaints"]
 attendance = db["attendance"]
 notifications = db["notifications"]
+rooms = db["rooms"]
 
 # --------------------------------------------------
 # 3. RECEIPT UPLOAD CONFIGURATION
@@ -304,6 +305,162 @@ def add_student():
             "success": False,
             "message": "Could not create student account."
         }), 500
+        
+        
+# --------------------------------------------------
+# ADMIN - GET ALL STUDENTS
+# --------------------------------------------------
+
+@app.get("/api/admin/students")
+@admin_required
+def get_admin_students():
+
+    try:
+        records = list(
+            users.find(
+                {"role": "student"},
+                {
+                    "_id": 0,
+                    "password_hash": 0
+                }
+            ).sort("created_at", -1)
+        )
+
+        # Convert datetime into JSON-safe format
+        for student in records:
+
+            if student.get("created_at"):
+                student["created_at"] = (
+                    student["created_at"].isoformat()
+                )
+
+            # Handle students without Student ID
+            student["student_id"] = student.get(
+                "student_id", "N/A"
+            )
+
+        return jsonify({
+            "success": True,
+            "students": records,
+            "total": len(records)
+        }), 200
+
+    except Exception:
+        app.logger.exception("Admin student loading error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not load students."
+        }), 500
+        
+        # --------------------------------------------------
+# ADMIN - ADD ROOM
+# --------------------------------------------------
+
+@app.post("/api/admin/rooms")
+@admin_required
+def add_admin_room():
+
+    try:
+        data = request.get_json(silent=True) or {}
+
+        room_number = str(data.get("room", "")).strip()
+        capacity = data.get("capacity")
+        status = str(data.get("status", "Available")).strip()
+        location = str(data.get("location", "")).strip()
+
+        # Validate required fields
+        if not room_number or not capacity or not location:
+            return jsonify({
+                "success": False,
+                "message": "All fields are required."
+            }), 400
+
+        try:
+            capacity = int(capacity)
+        except (ValueError, TypeError):
+            return jsonify({
+                "success": False,
+                "message": "Invalid room capacity."
+            }), 400
+
+        if capacity < 1:
+            return jsonify({
+                "success": False,
+                "message": "Capacity must be at least 1."
+            }), 400
+
+        if status not in ["Available", "Occupied", "Maintenance"]:
+            return jsonify({
+                "success": False,
+                "message": "Invalid room status."
+            }), 400
+
+        # Check duplicate room
+        if rooms.find_one({"room_number": room_number}):
+            return jsonify({
+                "success": False,
+                "message": "This room already exists."
+            }), 409
+
+        # Save room in MongoDB
+        room = {
+            "room_number": room_number,
+            "capacity": capacity,
+            "status": status,
+            "location": location,
+            "created_at": current_time()
+        }
+
+        rooms.insert_one(room)
+
+        return jsonify({
+            "success": True,
+            "message": "Room added successfully."
+        }), 201
+
+    except Exception:
+        app.logger.exception("Add room error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not add room."
+        }), 500
+        
+        # --------------------------------------------------
+# ADMIN - GET ALL ROOMS
+# --------------------------------------------------
+
+@app.get("/api/admin/rooms")
+@admin_required
+def get_admin_rooms():
+
+    try:
+        room_documents = list(
+            rooms.find(
+                {},
+                {"_id": 0}
+            ).sort("room_number", 1)
+        )
+
+        for room in room_documents:
+            if isinstance(room.get("created_at"), datetime):
+                room["created_at"] = room["created_at"].isoformat()
+
+        return jsonify({
+            "success": True,
+            "total": len(room_documents),
+            "rooms": room_documents
+        }), 200
+
+    except Exception:
+        app.logger.exception("Get rooms error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not load rooms."
+        }), 500
+        
         
 # --------------------------------------------------
 # 7. STUDENT PROFILE
@@ -841,6 +998,203 @@ def mark_notification_as_read(notification_id):
         return jsonify({
             "success": False,
             "message": "Could not update notification."
+        }), 500
+
+
+# --------------------------------------------------
+# ADMIN - PAYMENT MANAGEMENT
+# --------------------------------------------------
+
+# 1. GET ALL STUDENT PAYMENTS
+
+@app.get("/api/admin/payments")
+@admin_required
+def get_admin_payments():
+
+    try:
+        records = list(
+            payments.find(
+                {},
+                {"_id": 0}
+            ).sort("created_at", -1)
+        )
+
+        for payment in records:
+
+            if payment.get("created_at"):
+                payment["created_at"] = (
+                    payment["created_at"].isoformat()
+                )
+
+            # Get student details
+            student = users.find_one(
+                {
+                    "email": payment.get("student_email"),
+                    "role": "student"
+                },
+                {
+                    "_id": 0,
+                    "name": 1,
+                    "student_id": 1
+                }
+            )
+
+            payment["student_name"] = (
+                student.get("name", "Unknown")
+                if student else "Unknown"
+            )
+
+            payment["student_id"] = (
+                student.get("student_id", "N/A")
+                if student else "N/A"
+            )
+
+            # Add receipt URL
+            payment["receipt_url"] = (
+                f"/api/admin/payments/"
+                f"{payment.get('payment_id')}/receipt"
+            )
+
+        return jsonify({
+            "success": True,
+            "payments": records,
+            "total": len(records)
+        }), 200
+
+    except Exception:
+        app.logger.exception("Admin payment loading error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not load payments."
+        }), 500
+
+
+# 2. VIEW PAYMENT RECEIPT
+
+@app.get("/api/admin/payments/<payment_id>/receipt")
+@admin_required
+def view_payment_receipt(payment_id):
+
+    try:
+        payment = payments.find_one({
+            "payment_id": payment_id
+        })
+
+        if not payment:
+            return jsonify({
+                "success": False,
+                "message": "Payment not found."
+            }), 404
+
+        receipt_file = payment.get("receipt_file", "")
+
+        if not receipt_file:
+            return jsonify({
+                "success": False,
+                "message": "Receipt not found."
+            }), 404
+
+        # Prevent unsafe file paths
+        if os.path.basename(receipt_file) != receipt_file:
+            return jsonify({
+                "success": False,
+                "message": "Invalid receipt file."
+            }), 400
+
+        file_path = os.path.join(
+            UPLOAD_FOLDER,
+            receipt_file
+        )
+
+        if not os.path.isfile(file_path):
+            return jsonify({
+                "success": False,
+                "message": "Receipt file does not exist."
+            }), 404
+
+        return send_from_directory(
+            UPLOAD_FOLDER,
+            receipt_file,
+            as_attachment=False
+        )
+
+    except Exception:
+        app.logger.exception("Receipt viewing error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not open receipt."
+        }), 500
+
+
+# 3. APPROVE OR REJECT PAYMENT
+
+@app.post("/api/admin/payments/<payment_id>/decision")
+@admin_required
+def update_payment_decision(payment_id):
+
+    data = request.get_json(silent=True) or {}
+
+    decision = str(
+        data.get("decision", "")
+    ).strip().lower()
+
+    if decision not in ("verified", "rejected"):
+        return jsonify({
+            "success": False,
+            "message": "Invalid payment decision."
+        }), 400
+
+    try:
+        result = payments.update_one(
+            {
+                "payment_id": payment_id,
+                "status": "pending"
+            },
+            {
+                "$set": {
+                    "status": decision,
+                    "reviewed_at": current_time(),
+                    "reviewed_by": session["user_email"]
+                }
+            }
+        )
+
+        if result.matched_count == 0:
+
+            payment = payments.find_one({
+                "payment_id": payment_id
+            })
+
+            if not payment:
+                return jsonify({
+                    "success": False,
+                    "message": "Payment not found."
+                }), 404
+
+            return jsonify({
+                "success": False,
+                "message": "This payment has already been reviewed."
+            }), 409
+
+        return jsonify({
+            "success": True,
+            "message": (
+                "Payment verified successfully."
+                if decision == "verified"
+                else "Payment rejected successfully."
+            ),
+            "payment_id": payment_id,
+            "status": decision
+        }), 200
+
+    except Exception:
+        app.logger.exception("Payment decision error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not update payment status."
         }), 500
 
 

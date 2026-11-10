@@ -127,28 +127,53 @@ function showPage(page) {
   </div>
 `,
 
-    rooms: `
-      <div class="panel">
-        <h2>Room Management</h2>
-        <form onsubmit="addRoom(event)">
-          <label>Room number
-            <input name="room" placeholder="e.g. B-203" required>
-          </label>
-          <label>Room capacity
-            <input name="capacity" type="number" min="1" required>
-          </label>
-          <label>Room status
-            <select name="status">
-              <option>Available</option>
-              <option>Occupied</option>
-              <option>Maintenance</option>
-            </select>
-          </label>
-          <button class="action">Add Room (Demo)</button>
-        </form>
-        <div id="roomList"></div>
-      </div>
-    `,
+    
+rooms: `
+  <div class="panel">
+    <h2>Room Management</h2>
+
+    <form onsubmit="addRoom(event)">
+
+      <label>Room number
+        <input name="room"
+               placeholder="e.g. C-218"
+               required>
+      </label>
+
+      <label>Room capacity
+        <input name="capacity"
+               type="number"
+               min="1"
+               required>
+      </label>
+
+      <label>Room location
+        <input name="location"
+               type="text"
+               placeholder="e.g. Block C - Floor 2"
+               required>
+      </label>
+
+      <label>Room status
+        <select name="status">
+          <option>Available</option>
+          <option>Occupied</option>
+          <option>Maintenance</option>
+        </select>
+      </label>
+
+      <button class="action" type="submit">
+        Add Room
+      </button>
+
+    </form>
+
+    <p id="roomMessage" class="note"></p>
+
+    <div id="roomList"></div>
+  </div>
+`,
+
 
     bookings: `
       <div class="panel">
@@ -162,17 +187,28 @@ function showPage(page) {
       </div>
     `,
 
-    payments: `
-      <div class="panel">
-        <h2>Payment Records</h2>
-        ${tableHTML([
-          ["STU001", "Rs. 12,000", "Pending"],
-          ["STU002", "Rs. 12,000", "Verified"],
-          ["STU003", "Rs. 10,000", "Pending"]
-        ])}
-        <p class="note">Sample records only. No real payment is processed.</p>
-      </div>
-    `,
+  
+payments: `
+  <div class="panel">
+    <h2>💳 Payment Management</h2>
+
+    <p class="note">
+      View student payments, check receipts and review payment status.
+    </p>
+
+    <div id="paymentMessage">
+      Loading payment records...
+    </div>
+
+    <div id="paymentList"></div>
+
+    <button class="action"
+      onclick="loadAdminPayments()">
+      Refresh Payments
+    </button>
+  </div>
+`,
+
 
     complaints: `
       <div class="panel">
@@ -211,10 +247,19 @@ function showPage(page) {
     `
   };
 
-  content.innerHTML = pages[page] || pages.dashboard;
-  if (page === "notifications") {
-    loadNotifications();
+    content.innerHTML = pages[page] || pages.dashboard;
+
+       if (page === "notifications") {
+       loadNotifications();
 }
+
+       if (page === "payments") {
+       loadAdminPayments();
+}
+       if (page === "rooms") {
+       loadAdminRooms();
+}
+
 }
 
 function tableHTML(rows) {
@@ -310,24 +355,52 @@ async function addStudent(event) {
     }
 }
 
-function addRoom(event) {
+async function addRoom(event) {
   event.preventDefault();
-  const data = new FormData(event.target);
 
-  demoRooms.push({
-    room: data.get("room"),
-    capacity: data.get("capacity"),
-    status: data.get("status")
-  });
+  const form = event.target;
+  const data = new FormData(form);
 
-  document.getElementById("roomList").innerHTML =
-    "<p class='note'>Demo rooms: " +
-    demoRooms.map(r => escapeHTML(r.room) + " — " +
-      escapeHTML(r.status) + ", capacity " +
-      escapeHTML(r.capacity)).join("; ") +
-    "</p>";
+  const room = {
+    room: String(data.get("room") || "").trim(),
+    capacity: Number(data.get("capacity")),
+    status: data.get("status"),
+    location: String(data.get("location") || "").trim()
+  };
 
-  event.target.reset();
+  const message = document.getElementById("roomMessage");
+  message.textContent = "Adding room...";
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:5000/api/admin/rooms",
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(room)
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || "Could not add room.");
+    }
+
+    message.textContent = result.message;
+    message.style.color = "green";
+
+    form.reset();
+
+  } catch (error) {
+    message.textContent = error.message;
+    message.style.color = "red";
+
+    console.error("Add room error:", error);
+  }
 }
 
 function logout() {
@@ -514,6 +587,226 @@ async function markNotificationAsRead(notificationId) {
     }
 }
 
+
+// --------------------------------------------------
+// ADMIN - LOAD ALL PAYMENT RECORDS
+// --------------------------------------------------
+
+async function loadAdminPayments() {
+
+    const message = document.getElementById("paymentMessage");
+    const list = document.getElementById("paymentList");
+
+    if (!message || !list) return;
+
+    message.textContent = "Loading payment records...";
+    list.innerHTML = "";
+
+    try {
+
+        const response = await fetch(
+            "http://127.0.0.1:5000/api/admin/payments",
+            {
+                method: "GET",
+                credentials: "include"
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "Could not load payments."
+            );
+        }
+
+        const records = result.payments || [];
+
+        if (records.length === 0) {
+            message.textContent = "No payment records found.";
+            return;
+        }
+
+        message.textContent =
+            `Total Payment Records: ${records.length}`;
+
+        list.innerHTML = `
+            <div style="overflow-x:auto; margin-top:15px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>STUDENT</th>
+                            <th>STUDENT ID</th>
+                            <th>PAYMENT TYPE</th>
+                            <th>AMOUNT</th>
+                            <th>PAYMENT DATE</th>
+                            <th>STATUS</th>
+                            <th>RECEIPT</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        ${records.map(payment => {
+
+                            const status =
+                                (payment.status || "pending").toLowerCase();
+
+                            const amount = Number(payment.amount || 0)
+                                .toLocaleString("en-US", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+
+                            return `
+                                <tr>
+                                    <td>
+                                        ${escapeHTML(payment.student_name)}
+                                        <br>
+                                        <small>
+                                            ${escapeHTML(payment.student_email)}
+                                        </small>
+                                    </td>
+
+                                    <td>
+                                        ${escapeHTML(payment.student_id)}
+                                    </td>
+
+                                    <td>
+                                        ${escapeHTML(payment.type)}
+                                    </td>
+
+                                    <td>Rs. ${amount}</td>
+
+                                    <td>
+                                        ${escapeHTML(payment.payment_date)}
+                                    </td>
+
+                                    <td>
+                                        <strong>${escapeHTML(status.toUpperCase())}</strong>
+                                    </td>
+
+                                    <td>
+                                        <button class="action"
+                                            onclick="viewPaymentReceipt('${encodeURIComponent(payment.payment_id)}')">
+                                            View Receipt
+                                        </button>
+                                    </td>
+
+                                    <td>
+                                        ${
+                                            status === "pending"
+                                            ? `
+                                                <button class="action"
+                                                    onclick="reviewPayment('${encodeURIComponent(payment.payment_id)}', 'verified')">
+                                                    Verify
+                                                </button>
+
+                                                <button class="action"
+                                                    onclick="reviewPayment('${encodeURIComponent(payment.payment_id)}', 'rejected')">
+                                                    Reject
+                                                </button>
+                                            `
+                                            : `<span class="note">Reviewed</span>`
+                                        }
+                                    </td>
+                                </tr>
+                            `;
+
+                        }).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+    } catch (error) {
+
+        message.textContent = error.message;
+
+        console.error(
+            "Admin payment loading error:",
+            error
+        );
+    }
+}
+
+
+// --------------------------------------------------
+// ADMIN - VIEW PAYMENT RECEIPT
+// --------------------------------------------------
+
+function viewPaymentReceipt(paymentId) {
+
+    const url =
+        `http://127.0.0.1:5000/api/admin/payments/${paymentId}/receipt`;
+
+    window.open(url, "_blank");
+}
+
+
+// --------------------------------------------------
+// ADMIN - VERIFY OR REJECT PAYMENT
+// --------------------------------------------------
+
+async function reviewPayment(paymentId, decision) {
+
+    const action = decision === "verified"
+        ? "verify"
+        : "reject";
+
+    const confirmed = confirm(
+        `Are you sure you want to ${action} this payment?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+
+        const response = await fetch(
+            `http://127.0.0.1:5000/api/admin/payments/${paymentId}/decision`,
+            {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    decision: decision
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "Could not update payment."
+            );
+        }
+
+        alert(result.message);
+
+        // Reload updated payment records
+        await loadAdminPayments();
+
+    } catch (error) {
+
+        alert(error.message);
+
+        console.error(
+            "Payment review error:",
+            error
+        );
+    }
+}
+
+
+// Make functions available to HTML buttons
+window.loadAdminPayments = loadAdminPayments;
+window.viewPaymentReceipt = viewPaymentReceipt;
+window.reviewPayment = reviewPayment;
+
+
 window.loadNotifications = loadNotifications;
 window.markNotificationAsRead = markNotificationAsRead;
 
@@ -521,3 +814,6 @@ showPage("dashboard");
 
 window.addStudent = addStudent;
 window.loadNotifications = loadNotifications;
+
+window.addRoom = addRoom;
+window.loadAdminRooms = loadAdminRooms;
