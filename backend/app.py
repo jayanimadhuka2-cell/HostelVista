@@ -80,6 +80,7 @@ complaints = db["complaints"]
 attendance = db["attendance"]
 notifications = db["notifications"]
 rooms = db["rooms"]
+bookings = db["bookings"]
 
 # --------------------------------------------------
 # 3. RECEIPT UPLOAD CONFIGURATION
@@ -306,6 +307,88 @@ def add_student():
             "message": "Could not create student account."
         }), 500
         
+@app.get("/api/admin/bookings")
+@admin_required
+def get_admin_bookings():
+    try:
+        all_bookings = list(
+            bookings.find(
+                {},
+                {"_id": 0}
+            ).sort("created_at", -1)
+        )
+
+        for booking in all_bookings:
+            student = users.find_one(
+                {"email": booking["student_email"]},
+                {"_id": 0, "name": 1, "student_id": 1}
+            )
+
+            booking["student_name"] = (
+                student.get("name", "Unknown Student")
+                if student else "Unknown Student"
+            )
+
+            booking["student_id"] = (
+                student.get("student_id", "N/A")
+                if student else "N/A"
+            )
+
+        return jsonify({
+            "success": True,
+            "bookings": all_bookings
+        }), 200
+
+    except Exception:
+        app.logger.exception("Admin bookings error")
+        return jsonify({
+            "success": False,
+            "message": "Could not load booking requests."
+        }), 500        
+
+@app.put("/api/admin/bookings/<booking_id>")
+@admin_required
+def update_booking(booking_id):
+    try:
+        data = request.get_json(silent=True) or {}
+
+        status = str(data.get("status", "")).strip().lower()
+        admin_response = str(data.get("admin_response", "")).strip()
+
+        if status not in ["approved", "rejected"]:
+            return jsonify({
+                "success": False,
+                "message": "Invalid booking status."
+            }), 400
+
+        result = bookings.update_one(
+            {"booking_id": booking_id, "status": "pending"},
+            {
+                "$set": {
+                    "status": status,
+                    "admin_response": admin_response,
+                    "updated_at": current_time()
+                }
+            }
+        )
+
+        if result.matched_count == 0:
+            return jsonify({
+                "success": False,
+                "message": "Booking not found or already reviewed."
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "message": f"Booking {status} successfully."
+        }), 200
+
+    except Exception:
+        app.logger.exception("Update booking error")
+        return jsonify({
+            "success": False,
+            "message": "Could not update booking."
+        }), 500       
         
 # --------------------------------------------------
 # ADMIN - GET ALL STUDENTS
@@ -537,8 +620,251 @@ def get_allocation():
             "success": False,
             "message": "Could not load room allocation."
         }), 500
+        
+        
+# --------------------------------------------------
+# ADMIN - ALLOCATE ROOM TO STUDENT
+# --------------------------------------------------
+
+@app.post("/api/admin/allocations")
+@admin_required
+def create_allocation():
+
+    data = request.get_json(silent=True) or {}
+
+    student_email = str(
+        data.get("student_email", "")
+    ).strip().lower()
+
+    room_number = str(
+        data.get("room_number", "")
+    ).strip()
+
+    bed_number = str(
+        data.get("bed_number", "")
+    ).strip()
+
+    if not student_email or not room_number or not bed_number:
+        return jsonify({
+            "success": False,
+            "message": "All fields are required."
+        }), 400
+
+    try:
+        # Check student
+        student = users.find_one({
+            "email": student_email,
+            "role": "student"
+        })
+
+        if not student:
+            return jsonify({
+                "success": False,
+                "message": "Student not found."
+            }), 404
+            
+         # Check approved booking
+        approved_booking = bookings.find_one({
+               "student_email": student_email,
+                "status": "allocated"
+})
+
+        if not approved_booking:
+         return jsonify({
+        "success": False,
+        "message": "Student does not have an approved booking request."
+    }), 403  
+
+        # Check existing active allocation
+        existing = allocations.find_one({
+            "student_email": student_email,
+            "status": "active"
+        })
+
+        if existing:
+            return jsonify({
+                "success": False,
+                "message": "Student already has an active allocation."
+            }), 409
+
+        # Check room
+        room = rooms.find_one({
+            "room_number": room_number
+        })
+
+        if not room:
+            return jsonify({
+                "success": False,
+                "message": "Room not found."
+            }), 404
+
+        if room.get("status") != "Available":
+            return jsonify({
+                "success": False,
+                "message": "Room is not available."
+            }), 409
+
+        # Check available capacity
+        active_count = allocations.count_documents({
+            "room_number": room_number,
+            "status": "active"
+        })
+
+        if active_count >= int(room.get("capacity", 0)):
+            return jsonify({
+                "success": False,
+                "message": "Room is already full."
+            }), 409
+
+        # Prevent duplicate bed allocation
+        occupied_bed = allocations.find_one({
+            "room_number": room_number,
+            "bed_number": bed_number,
+            "status": "active"
+        })
+
+        if occupied_bed:
+            return jsonify({
+                "success": False,
+                "message": "This bed is already allocated."
+            }), 409
+
+        # Save allocation
+        allocation = {
+            "allocation_id": uuid.uuid4().hex,
+            "student_email": student_email,
+            "block": room.get("location", ""),
+            "room_number": room_number,
+            "bed_number": bed_number,
+            "status": "active",
+            "created_at": current_time()
+        }
+        
+        allocations.insert_one(allocation)
+
+        # Update booking status after successful allocation
+        bookings.update_one(
+            {
+                "booking_id": approved_booking["booking_id"],
+                "status": "approved"
+            },
+            {
+                "$set": {
+                    "status": "allocated",
+                    "updated_at": current_time()
+                }
+            }
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Room allocated successfully."
+        }), 201
+
+    except Exception:
+        app.logger.exception("Room allocation error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not allocate room."
+        }), 500  
+ 
+@app.post("/api/student/bookings")
+@student_required
+def create_booking():
+
+    data = request.get_json(silent=True) or {}
+
+    preferred_block = str(data.get("preferred_block", "")).strip()
+    room_type = str(data.get("room_type", "")).strip()
+    reason = str(data.get("reason", "")).strip()
+
+    if not preferred_block or not room_type or not reason:
+        return jsonify({
+            "success": False,
+            "message": "All fields are required."
+        }), 400
+
+    try:
+        student_email = session["user_email"]
+
+        existing_allocation = allocations.find_one({
+            "student_email": student_email,
+            "status": "active"
+        })
+
+        if existing_allocation:
+            return jsonify({
+                "success": False,
+                "message": "You already have a hostel room allocated."
+            }), 409
+
+        existing_booking = bookings.find_one({
+            "student_email": student_email,
+            "status": "pending"
+        })
+
+        if existing_booking:
+            return jsonify({
+                "success": False,
+                "message": "You already have a pending booking request."
+            }), 409
+
+        booking = {
+            "booking_id": uuid.uuid4().hex,
+            "student_email": student_email,
+            "preferred_block": preferred_block,
+            "room_type": room_type,
+            "reason": reason,
+            "status": "pending",
+            "admin_response": "",
+            "created_at": current_time()
+        }
+
+        bookings.insert_one(booking)
+
+        return jsonify({
+            "success": True,
+            "message": "Booking request submitted successfully."
+        }), 201
+
+    except Exception:
+        app.logger.exception("Booking request error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not submit booking request."
+        }), 500
 
 
+@app.get("/api/student/bookings")
+@student_required
+def get_student_bookings():
+
+    try:
+        student_email = session["user_email"]
+
+        student_bookings = list(
+            bookings.find(
+                {"student_email": student_email},
+                {"_id": 0}
+            ).sort("created_at", -1)
+        )
+
+        return jsonify({
+            "success": True,
+            "bookings": student_bookings
+        }), 200
+
+    except Exception:
+        app.logger.exception("Get student bookings error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not load booking history."
+        }), 500
+
+        
 # --------------------------------------------------
 # GET STUDENT PAYMENT HISTORY
 # --------------------------------------------------
@@ -738,6 +1064,133 @@ def submit_complaint():
         return jsonify({
             "success": False,
             "message": "Could not submit complaint."
+        }), 500
+        
+        
+# --------------------------------------------------
+# ADMIN - COMPLAINT MANAGEMENT
+# --------------------------------------------------
+
+@app.get("/api/admin/complaints")
+@admin_required
+def get_admin_complaints():
+
+    try:
+        records = list(
+            complaints.find(
+                {},
+                {"_id": 0}
+            ).sort("created_at", -1)
+        )
+
+        for complaint in records:
+            if isinstance(complaint.get("created_at"), datetime):
+                complaint["created_at"] = (
+                    complaint["created_at"].isoformat()
+                )
+
+            student = users.find_one(
+                {
+                    "email": complaint.get("student_email"),
+                    "role": "student"
+                },
+                {
+                    "_id": 0,
+                    "name": 1,
+                    "student_id": 1
+                }
+            )
+
+            complaint["student_name"] = (
+                student.get("name", "Unknown")
+                if student else "Unknown"
+            )
+
+            complaint["student_id"] = (
+                student.get("student_id", "N/A")
+                if student else "N/A"
+            )
+
+        return jsonify({
+            "success": True,
+            "complaints": records,
+            "total": len(records)
+        }), 200
+
+    except Exception:
+        app.logger.exception("Admin complaint loading error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not load complaints."
+        }), 500
+
+
+# --------------------------------------------------
+# ADMIN - UPDATE COMPLAINT
+# --------------------------------------------------
+
+@app.put("/api/admin/complaints/<complaint_id>")
+@admin_required
+def update_admin_complaint(complaint_id):
+
+    data = request.get_json(silent=True) or {}
+
+    status = str(data.get("status", "")).strip().lower()
+    admin_response = str(
+        data.get("admin_response", "")
+    ).strip()
+
+    allowed_statuses = [
+        "pending",
+        "in_progress",
+        "resolved"
+    ]
+
+    if status not in allowed_statuses:
+        return jsonify({
+            "success": False,
+            "message": "Invalid complaint status."
+        }), 400
+
+    if len(admin_response) > 2000:
+        return jsonify({
+            "success": False,
+            "message": "Admin response is too long."
+        }), 400
+
+    try:
+        result = complaints.update_one(
+            {"complaint_id": complaint_id},
+            {
+                "$set": {
+                    "status": status,
+                    "admin_response": admin_response,
+                    "reviewed_at": current_time(),
+                    "reviewed_by": session["user_email"]
+                }
+            }
+        )
+
+        if result.matched_count == 0:
+            return jsonify({
+                "success": False,
+                "message": "Complaint not found."
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "message": "Complaint updated successfully.",
+            "complaint_id": complaint_id,
+            "status": status
+        }), 200
+
+    except Exception:
+        app.logger.exception("Complaint update error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not update complaint."
         }), 500
 
 

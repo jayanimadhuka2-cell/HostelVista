@@ -78,6 +78,12 @@ function showPage(page) {
         dashboard: `
             <div class="cards">
 
+                <button class="card purple" onclick="showPage('booking')">
+                   <span>📋</span>
+                   <h3>Hostel Booking</h3>
+                   <p>Request a hostel room</p>
+                </button>
+
                 <button class="card blue" onclick="showPage('allocation')">
                     <span>🛏️</span>
                     <h3>Check Hostel Allocation</h3>
@@ -118,6 +124,56 @@ function showPage(page) {
 
             <div id="dashboardPayments"></div>
         `,
+
+        booking: `
+    <div class="panel">
+        <h2>📋 Hostel Booking Request</h2>
+
+        <p class="note">
+            Submit a request to get hostel accommodation.
+        </p>
+
+        <form onsubmit="submitBooking(event)">
+
+            <label>Preferred Block
+                <select name="preferred_block" required>
+                    <option value="">Select Block</option>
+                    <option value="Block A">Block A</option>
+                    <option value="Block B">Block B</option>
+                    <option value="Block C">Block C</option>
+                    <option value="Block D">Block D</option>
+                </select>
+            </label>
+
+            <label>Room Type
+                <select name="room_type" required>
+                    <option value="">Select Room Type</option>
+                    <option value="Single">Single</option>
+                    <option value="Shared">Shared</option>
+                </select>
+            </label>
+
+            <label>Reason for Request
+                <textarea
+                    name="reason"
+                    rows="4"
+                    maxlength="1000"
+                    placeholder="Enter your reason..."
+                    required
+                ></textarea>
+            </label>
+
+            <button class="action" type="submit">
+                Submit Booking Request
+            </button>
+
+        </form>
+
+        <p id="bookingMessage" class="note"></p>
+
+        <div id="bookingHistory"></div>
+    </div>
+`,
 
         allocation: `
             <div class="panel">
@@ -169,37 +225,37 @@ function showPage(page) {
         `,
 
         complaints: `
-            <div class="panel">
-                <h2>Submit Complaint</h2>
+    <div class="panel">
+        <h2>Submit Complaint</h2>
 
-                <form id="complaintForm" onsubmit="submitComplaint(event)">
+        <form id="complaintForm" onsubmit="submitComplaint(event)">
 
-                    <label>Issue type
-                        <select name="category" required>
-                            <option value="">Select issue</option>
-                            <option value="Electricity">Electricity</option>
-                            <option value="Water">Water</option>
-                            <option value="Wi-Fi / Connection">Wi-Fi / Connection</option>
-                            <option value="Room Maintenance">Room Maintenance</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </label>
+            <label>Issue type
+                <select name="category" required>
+                    <option value="">Select issue</option>
+                    <option value="Electricity">Electricity</option>
+                    <option value="Water">Water</option>
+                    <option value="Wi-Fi / Connection">Wi-Fi / Connection</option>
+                    <option value="Room Maintenance">Room Maintenance</option>
+                    <option value="Other">Other</option>
+                </select>
+            </label>
 
-                    <label>Description
-                        <textarea name="description"
-                            required rows="4" maxlength="2000"></textarea>
-                    </label>
+            <label>Description
+                <textarea name="description"
+                    required rows="4" maxlength="2000"></textarea>
+            </label>
 
-                    <button class="action" type="submit">
-                        Submit Complaint
-                    </button>
+            <button class="action" type="submit">
+                Submit Complaint
+            </button>
 
-                </form>
+        </form>
 
-                <p id="complaintMessage" class="note"></p>
-                <div id="complaintList"></div>
-            </div>
-        `,
+        <p id="complaintMessage" class="note"></p>
+        <div id="complaintList"></div>
+    </div>
+`,
 
         attendance: `
             <div class="panel">
@@ -231,6 +287,10 @@ function showPage(page) {
     // Load data according to selected page
     if (page === "dashboard") {
         loadDashboard();
+    }
+
+    if (page === "booking") {
+        loadBookingHistory();
     }
 
     if (page === "allocation") {
@@ -826,3 +886,101 @@ loadStudentProfile();
 // Make functions accessible to HTML buttons
 window.recordTime = recordTime;
 window.submitLateAttendance = submitLateAttendance;
+
+async function loadBookingHistory() {
+    const history = document.getElementById("bookingHistory");
+
+    if (!history) return;
+
+    history.innerHTML = '<p class="note">Loading booking history...</p>';
+
+    try {
+        const data = await apiRequest("/student/bookings");
+
+        const bookings = data.bookings || [];
+
+        if (bookings.length === 0) {
+            history.innerHTML = `
+                <p class="note">You have not submitted any booking requests yet.</p>
+            `;
+            return;
+        }
+
+        history.innerHTML = `
+            <h3>My Booking Requests</h3>
+
+            ${bookings.map(booking => `
+                <div class="panel">
+                    <p><strong>Preferred Block:</strong>
+                        ${escapeHTML(booking.preferred_block)}
+                    </p>
+
+                    <p><strong>Room Type:</strong>
+                        ${escapeHTML(booking.room_type)}
+                    </p>
+
+                    <p><strong>Reason:</strong>
+                        ${escapeHTML(booking.reason)}
+                    </p>
+
+                    <p><strong>Status:</strong>
+                        ${escapeHTML(booking.status)}
+                    </p>
+
+                    <p><strong>Admin Response:</strong>
+                        ${escapeHTML(booking.admin_response || "No response yet")}
+                    </p>
+                </div>
+            `).join("")}
+        `;
+
+    } catch (error) {
+        history.innerHTML = `
+            <p class="note">Could not load booking history.</p>
+        `;
+        console.error("Booking history error:", error);
+    }
+}
+
+window.loadBookingHistory = loadBookingHistory;
+
+async function submitBooking(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const formData = new FormData(form);
+    const message = document.getElementById("bookingMessage");
+
+    const bookingData = {
+        preferred_block: formData.get("preferred_block"),
+        room_type: formData.get("room_type"),
+        reason: formData.get("reason").trim()
+    };
+
+    message.textContent = "Submitting booking request...";
+
+    try {
+        const result = await apiRequest("/student/bookings", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(bookingData)
+        });
+
+        message.textContent = result.message;
+        message.style.color = "green";
+
+        form.reset();
+
+        await loadBookingHistory();
+
+    } catch (error) {
+        message.textContent = error.message;
+        message.style.color = "red";
+
+        console.error("Booking submission error:", error);
+    }
+}
+
+window.submitBooking = submitBooking;

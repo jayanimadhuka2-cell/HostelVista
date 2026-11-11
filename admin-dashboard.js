@@ -1,4 +1,4 @@
-
+const API_URL = "http://127.0.0.1:5000/api";
 const content = document.getElementById("content");
 
 document.getElementById("today").textContent =
@@ -22,6 +22,10 @@ function showPage(page) {
         <button class="card green" onclick="showPage('rooms')">
           <span>🛏️</span><h3>Room Management</h3>
           <p>View rooms and availability</p>
+        </button>
+        <button class="card blue" onclick="showPage('allocation')">
+          <span>🔑</span><h3>Room Allocation</h3>
+          <p>Allocate rooms to students</p>
         </button>
         <button class="card orange" onclick="showPage('bookings')">
           <span>📋</span><h3>Booking Requests</h3>
@@ -66,11 +70,12 @@ function showPage(page) {
         </div>
       </div>
 
-      ${tablePanel("Recent Bookings", [
-        ["STU001", "Room B-203", "Pending"],
-        ["STU002", "Room A-104", "Approved"],
-        ["STU003", "Room C-101", "Pending"]
-      ])}
+     <div class="panel">
+    <h2>Recent Bookings</h2>
+    <div id="recentBookings">
+        Loading recent bookings...
+    </div>
+   </div>
     `,
    notifications: `
   <div class="panel">
@@ -174,20 +179,67 @@ rooms: `
   </div>
 `,
 
+allocation: `
+  <div class="panel">
+    <h2>🔑 Room Allocation</h2>
 
-    bookings: `
-      <div class="panel">
-        <h2>Booking Requests</h2>
-        ${tableHTML([
-          ["STU001", "Room B-203", "Pending"],
-          ["STU002", "Room A-104", "Approved"],
-          ["STU003", "Room C-101", "Pending"]
-        ])}
-        <p class="note">Sample requests only.</p>
-      </div>
-    `,
+    <p class="note">
+      Allocate an available hostel room to a registered student.
+    </p>
 
-  
+    <form onsubmit="allocateRoom(event)">
+
+      <label>Select Student
+        <select name="student_email" id="allocationStudent" required>
+          <option value="">Select Student</option>
+        </select>
+      </label>
+
+      <label>Select Room
+        <select name="room_number" id="allocationRoom" required>
+          <option value="">Select Room</option>
+        </select>
+      </label>
+
+      <label>Bed Number
+        <input
+          name="bed_number"
+          type="text"
+          placeholder="e.g. Bed 1"
+          required
+        >
+      </label>
+
+      <button class="action" type="submit">
+        Allocate Room
+      </button>
+
+    </form>
+
+    <p id="allocationMessage" class="note"></p>
+  </div>
+`,
+
+  bookings: `
+  <div class="panel">
+    <h2>📋 Booking Requests</h2>
+
+    <p class="note">
+      Review and manage student hostel booking requests.
+    </p>
+
+    <div id="bookingMessage">
+      Loading booking requests...
+    </div>
+
+    <div id="bookingList"></div>
+
+    <button class="action" onclick="loadAdminBookings()">
+      Refresh Booking Requests
+    </button>
+  </div>
+`,
+
 payments: `
   <div class="panel">
     <h2>💳 Payment Management</h2>
@@ -210,17 +262,26 @@ payments: `
 `,
 
 
-    complaints: `
-      <div class="panel">
+complaints: `
+    <div class="panel">
         <h2>Student Complaints</h2>
-        ${tableHTML([
-          ["Room B-203", "Water issue", "Open"],
-          ["Room A-104", "Wi-Fi issue", "In progress"],
-          ["Room C-101", "Light repair", "Resolved"]
-        ])}
-        <p class="note">Sample complaints only.</p>
-      </div>
-    `,
+
+        <p class="note">
+            View and manage student complaints.
+        </p>
+
+        <div id="complaintMessage">
+            Loading complaints...
+        </div>
+
+        <div id="complaintList"></div>
+
+        <button class="action" onclick="loadAdminComplaints()">
+            Refresh Complaints
+        </button>
+    </div>
+`,
+
 
     feedback: `
       <div class="panel">
@@ -256,8 +317,17 @@ payments: `
        if (page === "payments") {
        loadAdminPayments();
 }
-       if (page === "rooms") {
-       loadAdminRooms();
+       if (page === "complaints") {
+       loadAdminComplaints();
+}
+      if (page === "allocation") {
+      loadAllocationOptions();
+}
+      if (page === "bookings") {
+      loadAdminBookings();
+}
+      if (page === "dashboard") {
+      loadRecentBookings();
 }
 
 }
@@ -402,6 +472,176 @@ async function addRoom(event) {
     console.error("Add room error:", error);
   }
 }
+
+// --------------------------------------------------
+// ADMIN - LOAD STUDENT COMPLAINTS
+// --------------------------------------------------
+
+async function loadAdminComplaints() {
+
+    const message = document.getElementById("complaintMessage");
+    const container = document.getElementById("complaintList");
+
+    if (!message || !container) return;
+
+    message.textContent = "Loading complaints...";
+    container.innerHTML = "";
+
+    try {
+        const response = await fetch(
+            `${API_URL}/admin/complaints`,
+            {
+                method: "GET",
+                credentials: "include"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Could not load complaints.");
+        }
+
+        if (!data.complaints || data.complaints.length === 0) {
+            message.textContent = "No student complaints found.";
+            return;
+        }
+
+        message.textContent =
+            `Total Complaints: ${data.complaints.length}`;
+
+        container.innerHTML = data.complaints.map(item => {
+
+            const id = escapeHTML(item.complaint_id);
+
+            return `
+                <div class="panel">
+
+                    <h3>${escapeHTML(item.category)}</h3>
+
+                    <p>
+                        <strong>Student:</strong>
+                        ${escapeHTML(item.student_name)}
+                    </p>
+
+                    <p>
+                        <strong>Student ID:</strong>
+                        ${escapeHTML(item.student_id)}
+                    </p>
+
+                    <p>
+                        <strong>Email:</strong>
+                        ${escapeHTML(item.student_email)}
+                    </p>
+
+                    <p>
+                        <strong>Description:</strong>
+                        ${escapeHTML(item.description)}
+                    </p>
+
+                    <p>
+                        <strong>Date:</strong>
+                        ${escapeHTML(item.created_at)}
+                    </p>
+
+                    <label>Status</label>
+
+                    <select id="complaint-status-${id}">
+                        <option value="pending"
+                            ${item.status === "pending" ? "selected" : ""}>
+                            Pending
+                        </option>
+
+                        <option value="in_progress"
+                            ${item.status === "in_progress" ? "selected" : ""}>
+                            In Progress
+                        </option>
+
+                        <option value="resolved"
+                            ${item.status === "resolved" ? "selected" : ""}>
+                            Resolved
+                        </option>
+                    </select>
+
+                    <br><br>
+
+                    <label>Admin Response</label>
+
+                    <textarea
+                        id="complaint-response-${id}"
+                        rows="3"
+                        maxlength="2000"
+                    >${escapeHTML(item.admin_response || "")}</textarea>
+
+                    <br><br>
+
+                    <button class="action"
+                        onclick="updateAdminComplaint('${id}')">
+                        Save Changes
+                    </button>
+
+                </div>
+            `;
+        }).join("");
+
+    } catch (error) {
+        message.textContent = error.message;
+        console.error("Admin complaints error:", error);
+    }
+}
+
+
+// --------------------------------------------------
+// ADMIN - UPDATE COMPLAINT
+// --------------------------------------------------
+
+async function updateAdminComplaint(complaintId) {
+
+    const status = document.getElementById(
+        `complaint-status-${complaintId}`
+    ).value;
+
+    const adminResponse = document.getElementById(
+        `complaint-response-${complaintId}`
+    ).value.trim();
+
+    try {
+        const response = await fetch(
+            `${API_URL}/admin/complaints/${encodeURIComponent(complaintId)}`,
+            {
+                method: "PUT",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    status: status,
+                    admin_response: adminResponse
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Update failed.");
+        }
+
+        alert("Complaint updated successfully!");
+
+        await loadAdminComplaints();
+
+    } catch (error) {
+        alert(error.message);
+        console.error("Complaint update error:", error);
+    }
+}
+
+
+// Make functions accessible to HTML buttons
+window.loadAdminComplaints = loadAdminComplaints;
+window.updateAdminComplaint = updateAdminComplaint;
+
 
 function logout() {
   sessionStorage.removeItem("hostelvistaRole");
@@ -816,4 +1056,318 @@ window.addStudent = addStudent;
 window.loadNotifications = loadNotifications;
 
 window.addRoom = addRoom;
-window.loadAdminRooms = loadAdminRooms;
+
+// --------------------------------------------------
+// ADMIN - LOAD STUDENTS AND ROOMS FOR ALLOCATION
+// --------------------------------------------------
+
+async function loadAllocationOptions() {
+
+    const studentSelect = document.getElementById("allocationStudent");
+    const roomSelect = document.getElementById("allocationRoom");
+    const message = document.getElementById("allocationMessage");
+
+    if (!studentSelect || !roomSelect || !message) return;
+
+    message.textContent = "Loading students and rooms...";
+
+    try {
+
+// Load approved booking students
+const studentResponse = await fetch(
+    `${API_URL}/admin/bookings`,
+    {
+        method: "GET",
+        credentials: "include"
+    }
+);
+
+const studentData = await studentResponse.json();
+
+if (!studentResponse.ok || !studentData.success) {
+    throw new Error(
+        studentData.message || "Could not load approved students."
+    );
+}
+
+const students = (studentData.bookings || []).filter(
+    booking => booking.status === "approved"
+);
+
+        studentSelect.innerHTML =
+         '<option value="">Select Approved Student</option>' +
+          students.map(student => `
+         <option value="${escapeHTML(student.student_email)}">
+            ${escapeHTML(student.student_name)}
+            (${escapeHTML(student.student_id || "")})
+        </option>
+       `).join("");
+
+
+        // Load hostel rooms
+        const roomResponse = await fetch(
+            `${API_URL}/admin/rooms`,
+            {
+                method: "GET",
+                credentials: "include"
+            }
+        );
+
+        const roomData = await roomResponse.json();
+
+        if (!roomResponse.ok) {
+            throw new Error(roomData.message || "Could not load rooms.");
+        }
+
+        const rooms = roomData.rooms || [];
+
+        const availableRooms = rooms.filter(
+            room => room.status === "Available"
+        );
+
+        roomSelect.innerHTML =
+            '<option value="">Select Room</option>' +
+            availableRooms.map(room => `
+                <option value="${escapeHTML(room.room_number)}">
+                    ${escapeHTML(room.room_number)} - ${escapeHTML(room.location)}
+                </option>
+            `).join("");
+
+        message.textContent =
+        `Loaded ${students.length} approved students and ${availableRooms.length} available rooms.`;
+
+    } catch (error) {
+
+        message.textContent = error.message;
+
+        console.error("Allocation options error:", error);
+    }
+}
+
+
+// Make function accessible
+window.loadAllocationOptions = loadAllocationOptions;
+
+
+async function allocateRoom(event) {
+
+    event.preventDefault();
+
+    const form = event.target;
+    const formData = new FormData(form);
+
+    const allocation = {
+        student_email: formData.get("student_email"),
+        room_number: formData.get("room_number"),
+        bed_number: formData.get("bed_number").trim()
+    };
+
+    const message = document.getElementById("allocationMessage");
+
+    message.textContent = "Allocating room...";
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/admin/allocations`,
+            {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(allocation)
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "Room allocation failed."
+            );
+        }
+
+        message.textContent = result.message;
+        message.style.color = "green";
+
+        form.reset();
+
+        await loadAllocationOptions();
+
+    } catch (error) {
+
+        message.textContent = error.message;
+        message.style.color = "red";
+
+        console.error("Room allocation error:", error);
+    }
+}
+
+window.allocateRoom = allocateRoom;
+async function loadAdminBookings() {
+    const message = document.getElementById("bookingMessage");
+    const list = document.getElementById("bookingList");
+
+    if (!message || !list) return;
+
+    message.textContent = "Loading booking requests...";
+    list.innerHTML = "";
+
+    try {
+        const response = await fetch(`${API_URL}/admin/bookings`, {
+            credentials: "include"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to load bookings.");
+        }
+
+        if (!data.bookings.length) {
+            message.textContent = "No booking requests found.";
+            return;
+        }
+
+        message.textContent = "";
+
+      list.innerHTML = data.bookings.map(booking => `
+    <div class="panel">
+        <h3>${escapeHTML(booking.student_name)}</h3>
+
+        <p>Student ID: ${escapeHTML(booking.student_id)}</p>
+        <p>Email: ${escapeHTML(booking.student_email)}</p>
+        <p>Preferred Block: ${escapeHTML(booking.preferred_block)}</p>
+        <p>Room Type: ${escapeHTML(booking.room_type)}</p>
+        <p>Reason: ${escapeHTML(booking.reason)}</p>
+
+        <p>Status: <strong>${escapeHTML(booking.status)}</strong></p>
+
+        <p>Admin Response:
+            ${escapeHTML(booking.admin_response || "No response")}
+        </p>
+
+        ${booking.status === "pending" ? `
+            <textarea
+                id="response-${escapeHTML(booking.booking_id)}"
+                placeholder="Enter admin response..."
+            ></textarea>
+
+            <button class="action"
+                onclick="updateBookingStatus('${escapeHTML(booking.booking_id)}', 'approved')">
+                Approve
+            </button>
+
+            <button class="action"
+                onclick="updateBookingStatus('${escapeHTML(booking.booking_id)}', 'rejected')">
+                Reject
+            </button>
+        ` : ""}
+    </div>
+`).join("");  
+
+    } catch (error) {
+        message.textContent = error.message;
+    }
+}
+
+window.loadAdminBookings = loadAdminBookings;
+async function updateBookingStatus(bookingId, status) {
+    const responseBox = document.getElementById(`response-${bookingId}`);
+
+    const adminResponse = responseBox
+        ? responseBox.value.trim()
+        : "";
+
+    try {
+        const response = await fetch(
+            `${API_URL}/admin/bookings/${encodeURIComponent(bookingId)}`,
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                    status: status,
+                    admin_response: adminResponse
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Booking update failed.");
+        }
+
+        alert(data.message);
+
+        loadAdminBookings();
+
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+window.updateBookingStatus = updateBookingStatus;
+
+async function loadRecentBookings() {
+    const container = document.getElementById("recentBookings");
+
+    if (!container) return;
+
+    container.innerHTML = '<p class="note">Loading recent bookings...</p>';
+
+    try {
+       const response = await fetch(`${API_URL}/admin/bookings`, {
+    method: "GET",
+    credentials: "include"
+});
+
+const data = await response.json();
+
+if (!response.ok) {
+    throw new Error(data.message || "Failed to load bookings");
+}
+
+const bookings = data.bookings || [];
+
+        if (bookings.length === 0) {
+            container.innerHTML = '<p class="note">No booking requests yet.</p>';
+            return;
+        }
+
+        const recentBookings = bookings.slice(0, 5);
+
+        container.innerHTML = `
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Student ID</th>
+                            <th>Preferred Block</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${recentBookings.map(booking => `
+                            <tr>
+                                <td>${escapeHTML(booking.student_name || "N/A")}</td>
+                                <td>${escapeHTML(booking.student_id || "N/A")}</td>
+                                <td>${escapeHTML(booking.preferred_block || "N/A")}</td>
+                                <td>${escapeHTML(booking.status || "Pending")}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error("Recent bookings error:", error);
+        container.innerHTML = '<p class="note">Unable to load recent bookings.</p>';
+    }
+}
