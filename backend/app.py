@@ -388,7 +388,53 @@ def update_booking(booking_id):
         return jsonify({
             "success": False,
             "message": "Could not update booking."
-        }), 500       
+        }), 500     
+        
+        
+
+# --------------------------------------------------
+# ADMIN - HOSTEL OVERVIEW STATISTICS
+# --------------------------------------------------
+
+@app.get("/api/admin/overview")
+@admin_required
+def get_admin_overview():
+
+    try:
+        total_students = users.count_documents({
+            "role": "student"
+        })
+
+        total_rooms = rooms.count_documents({})
+
+        pending_bookings = bookings.count_documents({
+            "status": "pending"
+        })
+
+        open_complaints = complaints.count_documents({
+            "status": {
+                "$in": ["pending", "in_progress"]
+            }
+        })
+
+        return jsonify({
+            "success": True,
+            "overview": {
+                "total_students": total_students,
+                "total_rooms": total_rooms,
+                "pending_bookings": pending_bookings,
+                "open_complaints": open_complaints
+            }
+        }), 200
+
+    except Exception:
+        app.logger.exception("Overview loading error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not load hostel overview."
+        }), 500
+  
         
 # --------------------------------------------------
 # ADMIN - GET ALL STUDENTS
@@ -435,8 +481,162 @@ def get_admin_students():
             "success": False,
             "message": "Could not load students."
         }), 500
+# --------------------------------------------------
+# ADMIN - STUDENT REPORT
+# --------------------------------------------------
+
+@app.get("/api/admin/reports/students")
+@admin_required
+def get_student_report():
+
+    try:
+        students = list(
+            users.find(
+                {"role": "student"},
+                {
+                    "_id": 0,
+                    "password_hash": 0
+                }
+            ).sort("created_at", -1)
+        )
+
+        for student in students:
+            if isinstance(student.get("created_at"), datetime):
+                student["created_at"] = (
+                    student["created_at"].isoformat()
+                )
+
+        return jsonify({
+            "success": True,
+            "total_students": len(students),
+            "students": students
+        }), 200
+
+    except Exception:
+        app.logger.exception("Student report error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not load student report."
+        }), 500
         
-        # --------------------------------------------------
+# --------------------------------------------------
+# ADMIN - ROOM OCCUPANCY REPORT
+# --------------------------------------------------
+
+@app.get("/api/admin/reports/rooms")
+@admin_required
+def get_room_report():
+    try:
+        all_rooms = list(rooms.find({}, {"_id": 0}))
+
+        active_allocations = list(
+            allocations.find({"status": "active"}, {"_id": 0})
+        )
+
+        room_reports = []
+        total_capacity = 0
+        total_occupied = 0
+
+        for room in all_rooms:
+            room_number = room.get("room_number")
+            block = room.get("location", "")
+
+            capacity = 2
+
+            occupied = sum(
+                1 for allocation in active_allocations
+                if allocation.get("room_number") == room_number
+                and allocation.get("block", "") == block
+            )
+
+            occupied = min(occupied, capacity)
+            available = capacity - occupied
+
+            room_reports.append({
+                "room_number": room_number,
+                "block": block,
+                "capacity": capacity,
+                "occupied_beds": occupied,
+                "available_beds": available
+            })
+
+            total_capacity += capacity
+            total_occupied += occupied
+
+        return jsonify({
+            "success": True,
+            "total_rooms": len(all_rooms),
+            "total_capacity": total_capacity,
+            "total_occupied": total_occupied,
+            "total_available": total_capacity - total_occupied,
+            "rooms": room_reports
+        }), 200
+
+    except Exception:
+        app.logger.exception("Room report error")
+        return jsonify({
+            "success": False,
+            "message": "Could not load room occupancy report."
+        }), 500       
+        
+# --------------------------------------------------
+# ADMIN - PAYMENT SUMMARY REPORT
+# --------------------------------------------------
+
+@app.get("/api/admin/reports/payments")
+@admin_required
+def get_payment_report():
+
+    try:
+        all_payments = list(
+            payments.find({}, {"_id": 0})
+        )
+
+        total_payments = len(all_payments)
+
+        pending = 0
+        verified = 0
+        rejected = 0
+        total_amount = 0
+        verified_amount = 0
+
+        for payment in all_payments:
+
+            status = payment.get("status", "pending").lower()
+            amount = float(payment.get("amount", 0))
+
+            total_amount += amount
+
+            if status == "pending":
+                pending += 1
+
+            elif status == "verified":
+                verified += 1
+                verified_amount += amount
+
+            elif status == "rejected":
+                rejected += 1
+
+        return jsonify({
+            "success": True,
+            "total_payments": total_payments,
+            "total_amount": round(total_amount, 2),
+            "verified_amount": round(verified_amount, 2),
+            "pending": pending,
+            "verified": verified,
+            "rejected": rejected
+        }), 200
+
+    except Exception:
+        app.logger.exception("Payment report error")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not load payment report."
+        }), 500
+         
+# --------------------------------------------------
 # ADMIN - ADD ROOM
 # --------------------------------------------------
 

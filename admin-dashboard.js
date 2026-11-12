@@ -44,15 +44,25 @@ function showPage(page) {
 </button>
       </div>
 
-      <div class="grid">
-        <div class="panel">
-          <h2>Hostel Overview</h2>
-          <p>Total Students: 120</p>
-          <p>Total Rooms: 40</p>
-          <p>Pending Bookings: 8</p>
-          <p>Open Complaints: 5</p>
-          <p class="note">Sample data — connect to Flask and MongoDB.</p>
-        </div>
+<div class="panel">
+    <h2>Hostel Overview</h2>
+
+    <p>Total Students:
+        <span id="overviewStudents">Loading...</span>
+    </p>
+
+    <p>Total Rooms:
+        <span id="overviewRooms">Loading...</span>
+    </p>
+
+    <p>Pending Bookings:
+        <span id="overviewBookings">Loading...</span>
+    </p>
+
+    <p>Open Complaints:
+        <span id="overviewComplaints">Loading...</span>
+    </p>
+</div>
 
         <div class="panel">
           <h2>Quick Actions</h2>
@@ -145,12 +155,15 @@ rooms: `
                required>
       </label>
 
-      <label>Room capacity
-        <input name="capacity"
-               type="number"
-               min="1"
-               required>
-      </label>
+     <label>Room capacity
+    <input name="capacity"
+           type="number"
+           value="2"
+           min="2"
+           max="2"
+           readonly
+           required>
+     </label>
 
       <label>Room location
         <input name="location"
@@ -282,30 +295,52 @@ complaints: `
     </div>
 `,
 
+reports: `
+    <div class="panel">
+        <h2>📊 Hostel Reports</h2>
+        <p class="note">
+            View and analyse hostel management reports.
+        </p>
+    </div>
 
-    feedback: `
-      <div class="panel">
-        <h2>Student Feedback</h2>
-        ${tableHTML([
-          ["STU001", "Room cleanliness", "5/5"],
-          ["STU002", "Wi-Fi connection", "3/5"],
-          ["STU003", "Hostel facilities", "4/5"]
-        ])}
-        <p class="note">Sample feedback only.</p>
-      </div>
-    `,
+    <div class="panel">
+        <h3>👥 Student Report</h3>
+        <p>Total registered students and student details.</p>
+        <div id="studentReport">
+            Loading student report...
+        </div>
+    </div>
 
-    reports: `
-      <div class="panel">
-        <h2>Hostel Reports</h2>
-        <p>Student registrations: 120</p>
-        <p>Room capacity: 160 beds</p>
-        <p>Pending bookings: 8</p>
-        <p>Open complaints: 5</p>
-        <p class="note">Report figures are examples, not live database data.</p>
-        <button class="action" onclick="window.print()">Print Report</button>
-      </div>
-    `
+    <div class="panel">
+        <h3>🛏️ Room Occupancy Report</h3>
+        <p>Room capacity, occupied beds and available beds.</p>
+        <div id="roomReport">
+            Loading room report...
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>💳 Payment Summary</h3>
+        <p>Total payments and payment statuses.</p>
+        <div id="paymentReport">
+            Loading payment report...
+        </div>
+    </div>
+`,
+
+overview: `
+    <div class="panel">
+        <h2>Hostel Overview</h2>
+
+      <p>Total Students: <span id="overviewStudents">Loading...</span></p>
+
+    <p>Total Rooms: <span id="overviewRooms">Loading...</span></p>
+
+    <p>Pending Bookings: <span id="overviewBookings">Loading...</span></p>
+
+    <p>Open Complaints: <span id="overviewComplaints">Loading...</span></p>
+</div>
+`,
   };
 
     content.innerHTML = pages[page] || pages.dashboard;
@@ -328,6 +363,12 @@ complaints: `
 }
       if (page === "dashboard") {
       loadRecentBookings();
+      loadHostelOverview();
+}
+      if (page === "reports") {
+      loadStudentReport();
+      loadRoomReport();
+      loadPaymentReport();
 }
 
 }
@@ -1369,5 +1410,240 @@ const bookings = data.bookings || [];
     } catch (error) {
         console.error("Recent bookings error:", error);
         container.innerHTML = '<p class="note">Unable to load recent bookings.</p>';
+    }
+}
+
+
+async function loadHostelOverview() {
+    const studentsEl = document.getElementById("overviewStudents");
+    const roomsEl = document.getElementById("overviewRooms");
+    const bookingsEl = document.getElementById("overviewBookings");
+    const complaintsEl = document.getElementById("overviewComplaints");
+
+    if (!studentsEl || !roomsEl || !bookingsEl || !complaintsEl) {
+        console.error("Hostel Overview HTML elements not found.");
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/admin/overview`, {
+            method: "GET",
+            credentials: "include"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Failed to load overview");
+        }
+
+        const overview = data.overview;
+
+        studentsEl.textContent = overview.total_students;
+        roomsEl.textContent = overview.total_rooms;
+        bookingsEl.textContent = overview.pending_bookings;
+        complaintsEl.textContent = overview.open_complaints;
+
+    } catch (error) {
+        console.error("Hostel overview error:", error);
+
+        studentsEl.textContent = "Unavailable";
+        roomsEl.textContent = "Unavailable";
+        bookingsEl.textContent = "Unavailable";
+        complaintsEl.textContent = "Unavailable";
+    }
+}
+// --------------------------------------------------
+// LOAD STUDENT REPORT
+// --------------------------------------------------
+
+async function loadStudentReport() {
+    const report = document.getElementById("studentReport");
+
+    if (!report) return;
+
+    report.innerHTML = "Loading student report...";
+
+    try {
+        const response = await fetch(
+            `${API_URL}/admin/reports/students`,
+            {
+                method: "GET",
+                credentials: "include"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.message || "Failed to load student report."
+            );
+        }
+
+        const students = data.students || [];
+
+        if (students.length === 0) {
+            report.innerHTML = "<p>No students found.</p>";
+            return;
+        }
+
+        report.innerHTML = `
+            <h4>Total Students: ${data.total_students}</h4>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Student ID</th>
+                        <th>Email</th>
+                        <th>Registered Date</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${students.map(student => `
+                        <tr>
+                            <td>${escapeHTML(student.name || "N/A")}</td>
+                            <td>${escapeHTML(student.student_id || "N/A")}</td>
+                            <td>${escapeHTML(student.email || "N/A")}</td>
+                            <td>${escapeHTML(
+                                student.created_at
+                                    ? new Date(student.created_at).toLocaleDateString()
+                                    : "N/A"
+                            )}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        `;
+
+    } catch (error) {
+        console.error("Student report error:", error);
+
+        report.innerHTML = `
+            <p class="error">
+                Could not load student report.
+            </p>
+        `;
+    }
+}
+
+// --------------------------------------------------
+// LOAD ROOM OCCUPANCY REPORT
+// --------------------------------------------------
+
+async function loadRoomReport() {
+
+    const report = document.getElementById("roomReport");
+
+    if (!report) return;
+
+    report.innerHTML = "Loading room report...";
+
+    try {
+        const response = await fetch(
+            `${API_URL}/admin/reports/rooms`,
+            {
+                method: "GET",
+                credentials: "include"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to load room report.");
+        }
+
+        const rooms = data.rooms || [];
+
+        report.innerHTML = `
+            <h4>Total Rooms: ${data.total_rooms}</h4>
+            <p>Total Beds: ${data.total_capacity}</p>
+            <p>Occupied Beds: ${data.total_occupied}</p>
+            <p>Available Beds: ${data.total_available}</p>
+
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Room Number</th>
+                            <th>Location</th>
+                            <th>Capacity</th>
+                            <th>Occupied Beds</th>
+                            <th>Available Beds</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rooms.map(room => `
+                            <tr>
+                                <td>${escapeHTML(room.room_number || "N/A")}</td>
+                                <td>${escapeHTML(room.block || "N/A")}</td>
+                                <td>${room.capacity}</td>
+                                <td>${room.occupied_beds}</td>
+                                <td>${room.available_beds}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error("Room report error:", error);
+        report.innerHTML = `<p>Could not load room report.</p>`;
+    }
+}
+// --------------------------------------------------
+// LOAD PAYMENT SUMMARY REPORT
+// --------------------------------------------------
+
+async function loadPaymentReport() {
+
+    const report = document.getElementById("paymentReport");
+
+    if (!report) return;
+
+    report.innerHTML = "Loading payment report...";
+
+    try {
+        const response = await fetch(
+            `${API_URL}/admin/reports/payments`,
+            {
+                method: "GET",
+                credentials: "include"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to load payment report.");
+        }
+
+        const formatAmount = (amount) =>
+            Number(amount || 0).toLocaleString("en-LK", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+        report.innerHTML = `
+            <h4>Total Payments: ${data.total_payments}</h4>
+
+            <p>Total Payment Amount: Rs. ${formatAmount(data.total_amount)}</p>
+
+            <p>Verified Payment Amount: Rs. ${formatAmount(data.verified_amount)}</p>
+
+            <p>Pending Payments: ${data.pending}</p>
+
+            <p>Verified Payments: ${data.verified}</p>
+
+            <p>Rejected Payments: ${data.rejected}</p>
+        `;
+
+    } catch (error) {
+        console.error("Payment report error:", error);
+        report.innerHTML = `<p>Could not load payment report.</p>`;
     }
 }
