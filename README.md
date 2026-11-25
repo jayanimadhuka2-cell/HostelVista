@@ -158,10 +158,6 @@ Administrators can manage hostel information, students, rooms, payments, complai
 
 Students can access their personal hostel information, submit payments and complaints, and record their check-in/check-out activities.
 
-## 📸 Screenshots
-
-Screenshots of the application can be added here to demonstrate the Login Page, Admin Dashboard, Student Dashboard, and other main functions.
-
 ## 👩‍💻 Developer
 
 **R.W.M.J Madhuka Rathnayaka**
